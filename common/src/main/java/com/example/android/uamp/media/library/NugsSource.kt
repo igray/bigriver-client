@@ -1,17 +1,30 @@
 package com.example.android.uamp.media.library
 
 import android.content.Context
+import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
 import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaMetadataCompat
+import android.util.Log
 import com.example.android.uamp.media.R
+import com.example.android.uamp.media.extensions.album
 import com.example.android.uamp.media.extensions.albumArtUri
+import com.example.android.uamp.media.extensions.albumArtist
+import com.example.android.uamp.media.extensions.artist
+import com.example.android.uamp.media.extensions.containsCaseInsensitive
 import com.example.android.uamp.media.extensions.flag
+import com.example.android.uamp.media.extensions.genre
 import com.example.android.uamp.media.extensions.id
 import com.example.android.uamp.media.extensions.title
+import com.example.android.uamp.media.library.nugs.UpdateNugs
 import com.example.android.uamp.media.library.nugs.artists.Api as ArtistsApi
+import com.example.android.uamp.media.library.nugs.container.Api as ContainerApi
+import com.example.android.uamp.media.library.nugs.containers.Api as ContainersApi
+import com.example.android.uamp.media.library.nugs.years.Api as YearsApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import java.io.IOException
 
 /**
  * Source of [MediaMetadataCompat] objects created from a basic JSON stream.
@@ -19,7 +32,7 @@ import kotlinx.coroutines.launch
  * The definition of the JSON is specified in the docs of [JsonMusic] in this file,
  * which is the object representation of it.
  */
-class NugsSource(val context: Context, private val serviceScope: CoroutineScope): Iterable<MediaMetadataCompat> {
+class NugsSource(val context: Context, private val serviceScope: CoroutineScope): Iterable<MediaMetadataCompat>, UpdateNugs {
     private val mediaIdToChildren = mutableMapOf<String, MutableList<MediaMetadataCompat>>()
     private val mediaStatus = mutableMapOf<String, Pair<Int, MutableList<(Boolean) -> Unit>>>()
     private val tracks = mutableMapOf<String, MediaMetadataCompat>()
@@ -66,23 +79,105 @@ class NugsSource(val context: Context, private val serviceScope: CoroutineScope)
     }
 
     fun search(query: String, extras: Bundle): List<MediaMetadataCompat> {
-       return mutableListOf()
+        // First attempt to search with the "focus" that's provided in the extras.
+        val focusSearchResult = when (extras[MediaStore.EXTRA_MEDIA_FOCUS]) {
+            MediaStore.Audio.Genres.ENTRY_CONTENT_TYPE -> {
+                // For a Genre focused search, only genre is set.
+                val genre = extras[EXTRA_MEDIA_GENRE]
+                Log.d(TAG, "Focused genre search: '$genre'")
+                filter { song ->
+                    song.genre == genre
+                }
+            }
+            MediaStore.Audio.Artists.ENTRY_CONTENT_TYPE -> {
+                // For an Artist focused search, only the artist is set.
+                val artist = extras[MediaStore.EXTRA_MEDIA_ARTIST]
+                Log.d(TAG, "Focused artist search: '$artist'")
+                filter { song ->
+                    (song.artist == artist || song.albumArtist == artist)
+                }
+            }
+            MediaStore.Audio.Albums.ENTRY_CONTENT_TYPE -> {
+                // For an Album focused search, album and artist are set.
+                val artist = extras[MediaStore.EXTRA_MEDIA_ARTIST]
+                val album = extras[MediaStore.EXTRA_MEDIA_ALBUM]
+                Log.d(TAG, "Focused album search: album='$album' artist='$artist")
+                filter { song ->
+                    (song.artist == artist || song.albumArtist == artist) && song.album == album
+                }
+            }
+            MediaStore.Audio.Media.ENTRY_CONTENT_TYPE -> {
+                // For a Song (aka Media) focused search, title, album, and artist are set.
+                val title = extras[MediaStore.EXTRA_MEDIA_TITLE]
+                val album = extras[MediaStore.EXTRA_MEDIA_ALBUM]
+                val artist = extras[MediaStore.EXTRA_MEDIA_ARTIST]
+                Log.d(TAG, "Focused media search: title='$title' album='$album' artist='$artist")
+                filter { song ->
+                    (song.artist == artist || song.albumArtist == artist) && song.album == album
+                            && song.title == title
+                }
+            }
+            else -> {
+                // There isn't a focus, so no results yet.
+                emptyList()
+            }
+        }
+
+        // If there weren't any results from the focused search (or if there wasn't a focus
+        // to begin with), try to find any matches given the 'query' provided, searching against
+        // a few of the fields.
+        // In this sample, we're just checking a few fields with the provided query, but in a
+        // more complex app, more logic could be used to find fuzzy matches, etc...
+        if (focusSearchResult.isEmpty()) {
+            return if (query.isNotBlank()) {
+                Log.d(TAG, "Unfocused search for '$query'")
+                filter { song ->
+                    song.title.containsCaseInsensitive(query)
+                            || song.genre.containsCaseInsensitive(query)
+                }
+            } else {
+                // If the user asked to "play music", or something similar, the query will also
+                // be blank. Given the small catalog of songs in the sample, just return them
+                // all, shuffled, as something to play.
+                Log.d(TAG, "Unfocused search without keyword")
+                return shuffled()
+            }
+        } else {
+            return focusSearchResult
+        }
     }
 
     operator fun get(mediaId: String) = mediaIdToChildren[mediaId]
 
     private suspend fun load(mediaId: String) {
         updateMediaState(mediaId, STATE_INITIALIZING)
-        when(mediaId) {
-            UAMP_ARTISTS_ROOT -> {
-                ArtistsApi(context).load()?.let { artists ->
-                    mediaIdToChildren[mediaId] = artists.toMutableList()
-                    updateMediaState(mediaId, STATE_INITIALIZED)
-                } ?: run {
-                    updateMediaState(mediaId, STATE_ERROR)
-                }
-            }
+        val loader = if(mediaId == UAMP_ARTISTS_ROOT) ArtistsApi(context)
+        else if(mediaId.startsWith("artist_")) {
+            YearsApi(context, mediaId.replace("artist_", ""))
         }
+        else if(mediaId.startsWith("artistyear_")) {
+            val parts = mediaId.split("_")
+            ContainersApi(parts[1], parts[2].toInt())
+        }
+        else if(mediaId.startsWith("container_")) {
+            ContainerApi(mediaId.replace("container_", ""))
+        }
+        else return
+
+        try {
+            loader.update(mediaId, this)
+            updateMediaState(mediaId, STATE_INITIALIZED)
+        } catch (ioException: IOException) {
+            updateMediaState(mediaId, STATE_ERROR)
+        }
+    }
+
+    override fun setMedia(mediaId: String, media: MutableList<MediaMetadataCompat>) {
+        mediaIdToChildren[mediaId] = media
+    }
+
+    override fun addTrack(mediaId: String, track: MediaMetadataCompat) {
+        tracks[mediaId] = track
     }
 
     private fun updateMediaState(mediaId: String, status: Int) {
@@ -98,12 +193,19 @@ class NugsSource(val context: Context, private val serviceScope: CoroutineScope)
             mediaStatus[mediaId] = pair.copy(first = status)
         }
     }
+
+    /**
+     * [MediaStore.EXTRA_MEDIA_GENRE] is missing on API 19. Hide this fact by using our
+     * own version of it.
+     */
+    private val EXTRA_MEDIA_GENRE
+        get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            MediaStore.EXTRA_MEDIA_GENRE
+        } else {
+            "android.intent.extra.genre"
+        }
 }
 
 const val UAMP_ARTISTS_ROOT = "__ALBUMS__"
 const val UAMP_SEARCH_KEY = "__SEARCH__"
-
-/**
- * Extension method for [MediaMetadataCompat.Builder] to set the fields from
- * our JSON constructed object (to make the code a bit easier to see).
- */
+private const val TAG = "MusicSource"
