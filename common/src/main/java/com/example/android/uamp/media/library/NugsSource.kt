@@ -54,7 +54,7 @@ class NugsSource(val context: Context, private val serviceScope: CoroutineScope)
     }
 
     fun whenReady(mediaId: String, performAction: (Boolean) -> Unit): Boolean {
-        if (mediaIdToChildren.containsKey(mediaId)) {
+        if (mediaIdToChildren.containsKey(mediaId) || tracks.containsKey(mediaId)) {
             performAction(true)
             return true
         }
