@@ -33,7 +33,9 @@ class Api(val context: Context, val artistId: String): IApi {
     override suspend fun update(mediaId: String, nugs: UpdateNugs) {
         withContext(Dispatchers.IO) {
             val data = download()
-            val mediaMetadataCompats = data.response!!.yearListItems!!.map { year ->
+            val mediaMetadataCompats = data.response!!.yearListItems!!
+                .filter { year -> year.toIntOrNull() != null }
+                .map { year ->
                 MediaMetadataCompat.Builder()
                     .fromYear(artistId, year)
                     .apply {

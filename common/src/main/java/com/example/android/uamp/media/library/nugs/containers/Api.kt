@@ -2,22 +2,12 @@ package com.example.android.uamp.media.library.nugs.containers
 
 import android.net.Uri
 import android.support.v4.media.MediaBrowserCompat
-import android.support.v4.media.MediaDescriptionCompat
 import android.support.v4.media.MediaMetadataCompat
-import com.example.android.uamp.media.extensions.album
 import com.example.android.uamp.media.extensions.albumArtUri
 import com.example.android.uamp.media.extensions.artist
-import com.example.android.uamp.media.extensions.displayDescription
-import com.example.android.uamp.media.extensions.displayIconUri
-import com.example.android.uamp.media.extensions.displaySubtitle
-import com.example.android.uamp.media.extensions.displayTitle
-import com.example.android.uamp.media.extensions.downloadStatus
 import com.example.android.uamp.media.extensions.flag
 import com.example.android.uamp.media.extensions.id
-import com.example.android.uamp.media.extensions.mediaUri
 import com.example.android.uamp.media.extensions.title
-import com.example.android.uamp.media.extensions.trackCount
-import com.example.android.uamp.media.extensions.trackNumber
 import com.example.android.uamp.media.library.nugs.IApi
 import com.example.android.uamp.media.library.nugs.UpdateNugs
 import com.example.android.uamp.media.library.nugs.UriBuilder
@@ -28,7 +18,7 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.URL
 
-class Api(val artistId: String, val year: Int): IApi {
+class Api(artistId: String, year: Int): IApi {
     private var uri: Uri
 
     init {
