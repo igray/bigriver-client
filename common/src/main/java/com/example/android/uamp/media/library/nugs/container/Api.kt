@@ -20,6 +20,8 @@ import com.example.android.uamp.media.extensions.mediaUri
 import com.example.android.uamp.media.extensions.title
 import com.example.android.uamp.media.extensions.trackCount
 import com.example.android.uamp.media.extensions.trackNumber
+import com.example.android.uamp.media.library.AlbumArtContentProvider
+import com.example.android.uamp.media.library.JsonSource
 import com.example.android.uamp.media.library.nugs.IApi
 import com.example.android.uamp.media.library.nugs.UpdateNugs
 import com.example.android.uamp.media.library.nugs.UriBuilder
@@ -45,8 +47,16 @@ class Api(val containerId: String): IApi {
         return withContext(Dispatchers.IO) {
             val data = download()
             val mediaMetadataCompats = data.response!!.tracks!!.map { track ->
+                val jsonImageUri = Uri.parse("https://secure.livedownloads.com" + data.response!!.img?.url)
+                val imageUri = AlbumArtContentProvider.mapUri(jsonImageUri)
                 val media = MediaMetadataCompat.Builder()
                     .fromTrack(data.response!!, track)
+                    .apply {
+                        displayIconUri = imageUri.toString() // Used by ExoPlayer and Notification
+                        albumArtUri = imageUri.toString()
+                        // Keep the original artwork URI for being included in Cast metadata object.
+                        putString(JsonSource.ORIGINAL_ARTWORK_URI_KEY, jsonImageUri.toString())
+                    }
                     .build()
                 nugs.addTrack(media.id!!, media)
                 media
@@ -72,7 +82,6 @@ fun MediaMetadataCompat.Builder.fromTrack(response: Response, track: Track): Med
     duration = durationMs
     genre = response.artistName
     mediaUri = track.clipURL
-    albumArtUri = "https://secure.livedownloads.com" + response.img?.url
     trackNumber = track.trackNum!!.toLong()
     trackCount = response.tracks!!.size.toLong()
     flag = MediaBrowserCompat.MediaItem.FLAG_PLAYABLE

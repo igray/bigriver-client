@@ -5,12 +5,16 @@ import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaMetadataCompat
 import com.example.android.uamp.media.extensions.albumArtUri
 import com.example.android.uamp.media.extensions.artist
+import com.example.android.uamp.media.extensions.displayIconUri
 import com.example.android.uamp.media.extensions.flag
 import com.example.android.uamp.media.extensions.id
 import com.example.android.uamp.media.extensions.title
+import com.example.android.uamp.media.library.AlbumArtContentProvider
+import com.example.android.uamp.media.library.JsonSource
 import com.example.android.uamp.media.library.nugs.IApi
 import com.example.android.uamp.media.library.nugs.UpdateNugs
 import com.example.android.uamp.media.library.nugs.UriBuilder
+import com.example.android.uamp.media.library.nugs.container.fromTrack
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -37,8 +41,16 @@ class Api(artistId: String, year: Int): IApi {
         return withContext(Dispatchers.IO) {
             val data = download()
             val mediaMetadataCompats = data.response!!.containers!!.map { container ->
+                val jsonImageUri = Uri.parse("https://secure.livedownloads.com" + container.img?.url)
+                val imageUri = AlbumArtContentProvider.mapUri(jsonImageUri)
                 MediaMetadataCompat.Builder()
                     .fromContainer(container)
+                    .apply {
+                        displayIconUri = imageUri.toString() // Used by ExoPlayer and Notification
+                        albumArtUri = imageUri.toString()
+                        // Keep the original artwork URI for being included in Cast metadata object.
+                        putString(JsonSource.ORIGINAL_ARTWORK_URI_KEY, jsonImageUri.toString())
+                    }
                     .build()
             }.toList()
             nugs.setMedia(mediaId, mediaMetadataCompats.toMutableList())
@@ -56,7 +68,6 @@ fun MediaMetadataCompat.Builder.fromContainer(container: Container): MediaMetada
     id = "container_" + container.containerID
     title = container.performanceDate
     artist = container.venue
-    albumArtUri = "https://secure.livedownloads.com" + container.img?.url
     flag = MediaBrowserCompat.MediaItem.FLAG_BROWSABLE
 
     return this
