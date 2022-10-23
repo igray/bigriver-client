@@ -22,13 +22,13 @@
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/list"
-        android:name="com.example.android.uamp.MediaItemFragment"
+        android:name="org.igster.bigriver.client.MediaItemFragment"
         style="@style/MediaItemList"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
-        tools:context="com.example.android.uamp.fragments.MediaItemFragment"
+        tools:context="org.igster.bigriver.client.fragments.MediaItemFragment"
         tools:listitem="@layout/fragment_mediaitem" />
 
     <ProgressBar
@@ -42,9 +42,9 @@
         android:layout_width="64dp"
         android:layout_height="64dp"
         android:layout_gravity="center"
-        android:tint="@color/colorAccent"
         android:visibility="gone"
-        app:srcCompat="@drawable/ic_signal_wifi_off_black_24dp" />
+        app:srcCompat="@drawable/ic_signal_wifi_off_black_24dp"
+        app:tint="@color/colorAccent" />
 
 </FrameLayout>
 

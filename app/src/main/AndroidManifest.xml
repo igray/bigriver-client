@@ -17,7 +17,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:dist="http://schemas.android.com/apk/distribution"
     xmlns:tools="http://schemas.android.com/tools"
-    package="com.example.android.uamp">
+    package="org.igster.bigriver.client">
 
     <application
         android:allowBackup="true"
@@ -38,7 +38,7 @@
 
         <!-- Declare that UAMP supports Cast. -->
         <meta-data android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
-            android:value="com.example.android.uamp.cast.UampCastOptionsProvider"/>
+            android:value="org.igster.bigriver.client.cast.UampCastOptionsProvider"/>
 
         <activity android:name=".MainActivity">
             <intent-filter>
@@ -54,8 +54,8 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data
-                    android:host="example.android.com"
-                    android:pathPattern="/uamp"
+                    android:host="bigriver.igster.org"
+                    android:pathPattern="/client"
                     android:scheme="http" />
             </intent-filter>
 
@@ -67,8 +67,8 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data
-                    android:host="example.android.com"
-                    android:pathPattern="/uamp"
+                    android:host="bigriver.igster.org"
+                    android:pathPattern="/client"
                     android:scheme="https" />
             </intent-filter>
 
