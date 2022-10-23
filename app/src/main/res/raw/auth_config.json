@@ -1,0 +1,12 @@
+{
+  "client_id": "Eg7HuH873H65r5rt325UytR5429",
+  "redirect_uri": "nugsnet://oauth2/callback",
+  "end_session_redirect_uri": "nugsnet://oauth2/callback",
+  "authorization_scope": "roles email profile openid nugsnet:api nugsnet:legacyapi offline_access",
+  "discovery_uri": "https://id.nugs.net/.well-known/openid-configuration",
+  "authorization_endpoint_uri": "",
+  "token_endpoint_uri": "",
+  "registration_endpoint_uri": "",
+  "user_info_endpoint_uri": "",
+  "https_required": true
+}
